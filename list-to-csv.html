@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>List to CSV</title>	
+</head>
+
+<body>
+
+    <h2>List to CSV</h2>
+    <p>This tool will convert a list of items into comma seperated values.</p>
+
+    <div style="float:left;">
+        <label for="list">List (one item per line)</label><br/>
+        <textarea id="list" style="width:400px;height:300px;"></textarea>
+    </div>
+    <div style="float:left;margin-left:20px;padding-top:50px;">
+        <button id="convert">Convert &raquo;</button>
+    </div>
+    <div style="float:left;margin-left:20px;">
+        <label for="csv">CSV</label><br/>
+        <textarea id="csv" style="width:400px;height:300px;"></textarea>
+    </div>
+    <div style="clear:both;"></div>
+
+    <h3>Options</h3>
+    <div style="float:left;">
+        <label for="separator">Separator</label><br/>
+        <input type="text" id="separator" value=","/>
+    </div>
+    <div style="float:left;margin-left:20px;">
+        <label for="qualifier">Qualifier</label><br/>
+        <input type="text" id="qualifier" value="&quot;"/>
+    </div>
+    <div style="float:left;margin-left:20px;">
+        &nbsp;<br/>
+        <input type="checkbox" id="always" value="true" /><label for="always">Always use qualifier</label>
+    </div>
+    <div style="float:left;margin-left:20px;">
+        &nbsp;<br/>
+        <input type="checkbox" id="empty" value="true" /><label for="empty">Remove empty lines</label>
+    </div>
+    <div style="clear:both;"></div>
+    <br/><br/>
+    <p>Created by <a href="http://rushfrisby.com">Rush Frisby</a></p>
+
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/json2/20130526/json2.min.js"></script>
+    <script type="text/javascript">
+    $(function () {
+        $("#convert").click(function (e) {
+            e.preventDefault();
+
+
+            var lines = $("#list").val();
+            var separator = $("#separator").val();
+            var qualifier = $("#qualifier").val();
+            var always = $("#always").is(":checked");
+            var empty = $("#empty").is(":checked");
+
+            if (lines.trim().length == 0) {
+                $("#csv").val("");
+                return;
+            }
+
+            if (qualifier.trim() == separator.trim()) {
+                alert("Separator and Qualifier must be different.");
+                return;
+            }
+
+            var csv = "";
+
+            var a = lines.split("\n");
+            var i;
+            for (i in a) {
+                var lot = a[i];
+                if (empty && lot.trim().length == 0)
+                    continue;
+                if (always || lot.indexOf(separator) != -1)
+                    lot = qualifier + lot + qualifier;
+                if (csv.length > 0)
+                    csv += separator;
+                csv += lot;
+            }
+
+            $("#csv").val(csv);
+        });
+    });
+</script>
+    
+</body>
+</html>
