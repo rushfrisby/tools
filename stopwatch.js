@@ -7,7 +7,7 @@ function Stopwatch()
     
     sw.__defineGetter__("ElapsedMilliseconds", function()
     {
-        return stop - start;
+        return (isRunning ? new Date() : stop) - start;
     });
     
     sw.__defineGetter__("IsRunning", function()
@@ -17,6 +17,9 @@ function Stopwatch()
     
     sw.Start = function()
     {
+        if(isRunning)
+            return;
+
         start = new Date();
         stop = null;
         isRunning = true;
@@ -24,19 +27,22 @@ function Stopwatch()
     
     sw.Stop = function()
     {
+        if(!isRunning)
+            return;
+
         stop = new Date();
         isRunning = false;
     }
     
     sw.Reset = function()
     {
-        start = new Date();
+        start = isRunning ? new Date() : null;
         stop = null;
     }
     
     sw.Restart = function()
     {
-        sw.Reset();
         isRunning = true;
+        sw.Reset();
     }
 }
