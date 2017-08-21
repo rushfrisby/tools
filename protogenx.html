@@ -1,1 +1,23 @@
-
+<html>
+  <head>
+    <title>Generate a C# Class from a .proto</title>
+  </head>
+  <body>
+    <h1>Generate a C# Class from a .proto</h1>
+    <p>Why? Because protoc generates an insanely huge class and protogen was removed from protobuf-net's repo.</p>
+    
+    <form>
+      <div>
+        <label for="dotproto">.proto Content:</label>
+        <textarea id="dotproto" rows="10" cols="50"></textarea>
+      </div>
+      <div>
+        <button id="btnGenerate">Generate C#</button>
+      </div>
+      <div>
+        <label for="csharp">C# Class</label>
+        <textarea id="dotproto" rows="10" cols="50"></textarea>
+      </div>
+    </form>
+  </body>
+</html>
