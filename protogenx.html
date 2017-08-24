@@ -1,23 +1,303 @@
 <html>
   <head>
-    <title>Generate a C# Class from a .proto</title>
+    <title>Generate C# Classes from .proto</title>
+    <style type="text/css">
+      label
+      {
+        display: block;
+        font-weight: bold;
+      }
+      div
+      {
+        margin-bottom: 20px;
+      }
+      .pull-left
+      {
+        float: left;
+        margin-right: 20px;
+      }
+      .clear
+      {
+        clear: both;
+      }
+    </style>
   </head>
   <body>
-    <h1>Generate a C# Class from a .proto</h1>
+    <h1>Generate C# Classes from .proto</h1>
     <p>Why? Because protoc generates an insanely huge class and protogen was removed from protobuf-net's repo.</p>
     
-    <form>
+
       <div>
         <label for="dotproto">.proto Content:</label>
-        <textarea id="dotproto" rows="10" cols="50"></textarea>
+        <textarea id="dotproto" rows="25" cols="150"></textarea>
       </div>
       <div>
-        <button id="btnGenerate">Generate C#</button>
+        <div class="pull-left">
+          Attribute Type:
+          <label><input type="radio" name="attributeType" value="ProtoBuf"> protobuf-net</label>
+          <label><input type="radio" name="attributeType" value="System.Runtime.Serialization" checked="checked"> System.Runtime.Serialization</label>
+        </div>
+        <div class="pull-left">
+          <button id="btnGenerate" onclick="generateCSharp(); return false;">Generate C#</button>
+        </div>
+        <div class="clear"></div>
       </div>
       <div>
-        <label for="csharp">C# Class</label>
-        <textarea id="dotproto" rows="10" cols="50"></textarea>
+        <label for="csharp">C# Classes</label>
+        <textarea id="csharp" rows="25" cols="150"></textarea>
       </div>
-    </form>
+
   </body>
+
+  <script type="text/javascript">
+    var newLine = "\r\n";
+    var tab = "\t";
+
+    function generateCSharp()
+    {
+      var protoRaw = document.getElementById("dotproto").value;
+      var protoLines = protoRaw.split(/[\r\n]+/);
+
+      var protoVersion = 2;
+      var packageName = "";
+
+      var messages = [];
+
+      for (var i = 0; i < protoLines.length; i++)
+      {
+        var line = protoLines[i].trim();
+        if(line.startsWith("syntax"))
+        {
+          protoVersion = getProtoVersion(line);
+        }
+        else if (line.startsWith("package"))
+        {
+          packageName = getPackageName(line);
+        }
+        else if (line.startsWith("message"))
+        {
+          var skipLines = 0;
+          var message = getMessage(protoLines, i, skipLines);
+          messages.push(message);
+          i += skipLines;
+          //console.log(message);
+        }
+      }
+
+      document.getElementById("csharp").value = getCSharpClasses(packageName, messages);
+    }
+
+    function getProtoVersion(line)
+    {
+        var spot1 = line.indexOf("\"");
+        var spot2 = line.indexOf("\"", spot1 + 1);
+        var protoVersionValue = line.substring(spot1 + 1, spot2).trim().toLowerCase();
+        return protoVersionValue === "proto3" ? 3 : 2;
+    }
+
+    function getPackageName(line)
+    {
+        var spot1 = line.indexOf(" ");
+        var len = line.length;
+        var packageNameValue = line.substring(spot1 + 1, len - 1).trim();
+        if(packageNameValue.endsWith(";"))
+        {
+          packageNameValue = packageNameValue.substring(0, len - 2);
+        }
+        return packageNameValue;
+    }
+
+    function getMessage(protoLines, startingLineIndex, outSkipLines)
+    {
+      var message = {
+        name: "",
+        properties: []
+      };
+
+      var line = protoLines[startingLineIndex].trim();
+      var spot1 = line.indexOf(" ");
+      var spot2 = -1;
+
+      while(true)
+      {
+        spot2 = line.indexOf("{", spot1 + 1);
+        if(spot2 != -1 || startingLineIndex >= protoLines.length)
+        {
+          break;
+        }
+        startingLineIndex += 1;
+        outSkipLines += 1;
+        line += protoLines[startingLineIndex].trim();
+      }
+      if(spot2 == -1)
+      {
+        spot2 = line.length;
+      }
+      message.name = line.substring(spot1 + 1, spot2).trim();
+
+      var sb = "";
+      for (var i = startingLineIndex + 1; i < protoLines.length; i++)
+      {
+        outSkipLines += 1;
+        var peekLine = protoLines[i];
+        sb += peekLine;
+        if(peekLine.indexOf("}") > -1)
+        {
+          break;
+        }
+      }
+
+      var props = sb.split(";");
+      for(var i = 0; i < props.length; i++)
+      {
+        var prop = props[i].trim();
+        var typeSpot = prop.indexOf(" ");
+        var nameSpot = prop.indexOf("=", typeSpot + 1);
+        var property = {
+          type: prop.substring(0, typeSpot).trim(),
+          name: prop.substring(typeSpot + 1, nameSpot).trim(),
+          id: parseInt(prop.substring(nameSpot + 1, prop.len).trim())
+        };
+        if(property.type === "")
+        {
+          //console.log("type is empty");
+          continue;
+        }
+        if(property.name === "")
+        {
+          //console.log("name is empty");
+          continue;
+        }
+        if(isNaN(property.id))
+        {
+          //console.log("id is nan");
+          continue;
+        }
+        message.properties.push(property);
+      }
+
+      return message;
+    }
+
+    function getCSharpClasses(packageName, messages)
+    {
+      var sb = "using System;" + newLine;
+
+      var contractAttribute = "[DataContract]";
+      var memberAttribute = "[DataMember(Order = #)]";
+
+      var usingNamespace = getRadioValue("attributeType");
+      sb += "using " + usingNamespace + ";" + newLine;
+      if(usingNamespace === "ProtoBuf")
+      {
+        contractAttribute = "[ProtoContract]";
+        memberAttribute = "[ProtoMember(#)]";
+      }
+
+      sb += newLine;
+      var tabs = "";
+      
+      if(packageName.length > 0)
+      {
+        sb += tabs + "namespace " + packageName + newLine;
+        sb += tabs + "{" + newLine;
+        tabs += tab;
+      }
+
+      for(var i = 0; i < messages.length; i++)
+      {
+        var csharpClass = getCSharpClass(packageName, messages[i], tabs, contractAttribute, memberAttribute);
+        if(i > 0)
+        {
+          sb += newLine;
+        }
+        sb += csharpClass;
+      }
+
+      if(packageName.length > 0)
+      {
+        tabs = tabs.substring(0, tabs.length - 1);
+        sb += tabs + "}" + newLine;
+      }
+
+      return sb;
+    }
+
+    function getCSharpClass(packageName, message, tabs, contractAttribute, memberAttribute)
+    {
+      var sb = "";
+      sb += tabs + contractAttribute + newLine;
+      sb += tabs + "public class " + message.name + newLine;
+      sb += tabs + "{" + newLine;
+      tabs += tab;
+
+      for(var i = 0; i < message.properties.length; i++)
+      {
+        sb += tabs + memberAttribute.replace("#", message.properties[i].id) + newLine;
+        sb += tabs + "public " + getDotNetType(message.properties[i].type) + " " + message.properties[i].name + " { get; set; }" + newLine;
+        sb += newLine;
+      }
+
+      tabs = tabs.substring(0, tabs.length - 1);
+      sb += tabs + "}" + newLine;
+      return sb;
+    }
+
+    function getRadioValue(name)
+    {
+      var radios = document.getElementsByName(name);
+      for (var i = 0; i < radios.length; i++)
+      {
+        if (radios[i].checked)
+        {
+          return radios[i].value;
+        }
+      }
+      return null;
+    }
+
+    function getDotNetType(protoType)
+    {
+      switch(protoType)
+      {
+        case "sfixed32":
+        case "sint32":
+        case "int32":
+          return "int";
+
+        case "string":
+          return "string";
+
+        case "double":
+          return "double";
+
+        case "float":
+          return "float";
+
+        case "fixed32":
+        case "uint32":
+          return "uint";
+
+        case "fixed64":
+        case "uint64":
+          return "ulong";
+
+        case "int64":
+        case "sint64":
+        case "sfixed64":
+          return "long";
+
+        case "bool":
+          return "bool";
+
+        case "bytes":
+          return "byte[]";
+
+        default:
+          return protoType;
+      }
+    }
+
+  </script>
+
 </html>
